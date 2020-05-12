@@ -87,6 +87,7 @@ def removeSlabBulk(topname, resname, cutoffOH=0.12, cutoffBulk=0):
 def selectAtoms(top, atomname):
     selectAtoms = f'name == {atomname}'
     atoms = top.select(selectAtoms)
+    print(f'Selecting {len(atoms)} "{atomname}" atoms...')
     return atoms
 
 
