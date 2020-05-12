@@ -11,7 +11,7 @@ def readXTC(trajname, topname, stride=1):
     traj = md.load_xtc(trajname, top=topname, stride=stride)
     end = time.time()
     print(f'Reading trajectory file took {round(end - start, 4)} seconds.')
-    print(traj)
+    print(f'{traj}\n')
     return traj
 
 
@@ -20,15 +20,15 @@ def readXTC(trajname, topname, stride=1):
 # of OH groups. First, the hydrogen atoms are found, then the function looks for neighbors of hydrogen atoms
 # within certain cutoff distance (0.12 nm by default). It assumes that ALL hydrogen atoms within a residue
 # belong to OH groups (no bonded water!). 
-def selectOH(topname, resname, cutoff = 0.12):
+def selectOH(topname, resname, cutoffOH = 0.12):
     coordinates = md.load(topname)
     top = md.load(topname).topology
     selectH = f'resname == {resname} and symbol == H'
-    print(f'Selecting hydrogens using "{selectH}" keywords...\nLooking for oxygen atoms within {cutoff} nm from the hydrogen atoms...')
+    print(f'Selecting hydrogens using "{selectH}" keywords...\nLooking for oxygen atoms within {cutoffOH} nm from the hydrogen atoms...')
     hydrogens = top.select(selectH)
     assert hydrogens.size != 0, ('Hydrogen atoms selection is empty. Please check the name of the residue or the topology file.')
     print(f'There are {len(hydrogens)} hydrogen atoms in the OH groups of the residue.')
-    oxygens = md.compute_neighbors(coordinates, cutoff, hydrogens)[0]
+    oxygens = md.compute_neighbors(coordinates, cutoffOH, hydrogens)[0]
     assert len(hydrogens) == len(oxygens), (
         'Number of hydrogen atoms does not match the number of oxygen atoms. Please check the cut-off distance \
 (default value is 0.12 nm), selections or the topology file.')
@@ -40,7 +40,7 @@ def selectOH(topname, resname, cutoff = 0.12):
 # This function reads a topology file (for example, a single GRO or PDB file), selects
 # a certain residue (for example TiO2 slab or NP) then calls selectOH function to find OH groups
 # and returns a numpy array that contains indices of the original residue without OH groups
-def removeOH(topname, resname, cutoff = 0.12):
+def removeOH(topname, resname, cutoffOH = 0.12):
     print(f'Selecting residue "{resname}"...')
     top = md.load(topname).topology
     selectResidue = f'resname == {resname}'
@@ -48,11 +48,39 @@ def removeOH(topname, resname, cutoff = 0.12):
     assert residue_with_OH.size != 0, ('Residue atoms selection is empty. Please check the name of the residue or the topology file.')
     print(f'Residue "{resname}" contains {len(residue_with_OH)} atoms.')
     print(f'Finding and deleting OH groups...\n')
-    OH = selectOH(topname, resname, cutoff=cutoff)
+    OH = selectOH(topname, resname, cutoffOH=cutoffOH)
     residue_without_OH = np.array([atom for atom in residue_with_OH if atom not in OH])
     assert residue_without_OH.size != 0, ('No atoms were found in the residue after deleting OH atoms. Please check the name of the residue or the topology file.')
     print(f'Residue "{resname}" contains {len(residue_without_OH)} atoms after deleting OH groups.\n')
     return residue_without_OH
+
+
+# An attempt to remove bulk atoms from the slab based on the distance from COM to every
+# atom along Z axis. Currently gives inconsistent results, the use of the function is not advised.
+def removeSlabBulk(topname, resname, cutoffOH=0.12, cutoffBulk=0):
+    print(f'Using {cutoffBulk} nm as a minimum distance from COM along Z axis to remove bulk slab atoms.\n')
+
+    # Get indices of the residue without OH groups
+    residue_without_OH = removeOH(topname, resname, cutoffOH=cutoffOH)
+    assert residue_without_OH.size != 0, ('Residue atoms selection is empty. Please check the name of the residue or the topology file.')
+
+    # Load coordinates of the residue atoms
+    coordinates_all = md.load(topname)
+    coordinates_without_OH = coordinates_all.atom_slice(residue_without_OH)
+
+    # Calculate COM of the residue
+    com = md.compute_center_of_geometry(coordinates_without_OH)
+
+    # Calculate the distance from every atom to COM along Z axis
+    Z_to_COM = abs(coordinates_without_OH.xyz[0].T[2] - com[0][2])
+
+    # Return indices of atoms that are separated from COM
+    # by more than cutoffBulk (nm) along Z axis:
+    residue_modified = np.argwhere(Z_to_COM > cutoffBulk).T[0]
+    assert residue_modified.size != 0, ('No atoms were found in the residue after deleting bulk atoms. Please change the cutoffBulk (nm) parameter.')
+    print(f'Residue "{resname}" contains {len(residue_modified)} atoms after deleting bulk atoms.\n')
+
+    return residue_modified
 
 
 # Select atoms from a topology and return list of indices of the atoms
@@ -68,12 +96,16 @@ def selectAtoms(top, atomname):
 # The distances between all the atoms and residue atoms are calculated and the minimum
 # distance between each atom and every atom of the residue is taken
 # and outputed as an array
-def getSurfaceDistance(traj, topname, resname, atomname, cutoff=0.12):
+def getSurfaceDistance(traj, topname, resname, atomname, cutoffOH=0.12, isSlab=False, cutoffBulk=0):
     # Load the topology
     top = md.load(topname).topology
 
-    # Get indices of the residue without OH groups
-    residue = removeOH(topname, resname, cutoff=cutoff)
+    if not isSlab:
+        # Get indices of the residue without OH groups
+        residue = removeOH(topname, resname, cutoffOH=cutoffOH)
+    else:
+        # Get indices of the residue without OH groups and without bulk atoms
+        residue = removeSlabBulk(topname, resname, cutoffOH=cutoffOH, cutoffBulk=cutoffBulk)
 
     # Get indices of the atoms
     atoms = selectAtoms(top, atomname)
