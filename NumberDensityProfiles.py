@@ -11,6 +11,7 @@ def readXTC(trajname, topname, stride=1):
     traj = md.load_xtc(trajname, top=topname, stride=stride)
     end = time.time()
     print(f'Reading trajectory file took {round(end - start, 4)} seconds.')
+    print(traj)
     return traj
 
 
@@ -62,7 +63,7 @@ def selectAtoms(top, atomname):
 
 
 # This function takes trajectory file that is read by readXTC function, indices of atoms
-# reads matching topology, takes the name of the residue and cutoff distance
+# from matching topology, the name of the residue and cutoff distance
 # for finding oxygens of OH groups in the residue.
 # The distances between all the atoms and residue atoms are calculated and the minimum
 # distance between each atom and every atom of the residue is taken
@@ -76,8 +77,6 @@ def getSurfaceDistance(traj, topname, resname, atomname, cutoff=0.12):
 
     # Get indices of the atoms
     atoms = selectAtoms(top, atomname)
-    #selectAtoms = f'name == {atomname}'
-    #atoms = top.select(selectAtoms)
 
     # Get pairs
     atomsRepeated = np.repeat(atoms, len(residue), axis=0)
@@ -88,15 +87,21 @@ def getSurfaceDistance(traj, topname, resname, atomname, cutoff=0.12):
     start = time.time()
     distances = md.compute_distances(traj, pairs)
     end = time.time()
-    print(f'Distance calculation took {round(end - start, 8)} seconds.')
+    print(f'Distance calculation took {round(end - start, 8)} seconds.\n')
     distances_reshaped = np.reshape(distances, (traj.n_frames, len(atoms), len(residue)))
-    #print(distances_reshaped.shape)
-    #print(np.amin(distances_reshaped, axis=2))
+ 
+    # distance_reshaped is an array with (N_frames * N_atoms * N_atoms_residue) shape.
+    # minimum element of the array along axis=2 means taking the distance from every frame and every atom
+    # to the nearest residue atom (hence the surface distance)  
 
     return np.amin(distances_reshaped, axis=2).flatten()
 
 
-def normalize(traj, distances, topname, atomname, binWidth):
+# This function builds histogram for the atom - residue distances. It takes trajectory file 
+# that is read by readXTC function, indices of atoms
+# from matching topology, name of the atoms, bin width for histogram (nm) and the name
+# of the system for the output file name.
+def normalize(traj, distances, topname, atomname, binWidth, outname):
     # Load the topology
     top = md.load(topname).topology
 
@@ -113,6 +118,7 @@ def normalize(traj, distances, topname, atomname, binWidth):
     binVolume = binWidth * slabSurfaceArea
     Nbins = int((max(distances) - min(distances)) / binWidth)
 
+    print(f'Building histogram...')
     print(f'Number of frames: {Nframes}')
     print(f'Average number density: {round(averageNumberDensity, 8)}')
     print(f'Bin volume: {round(binVolume, 4)} nm3')
@@ -122,82 +128,26 @@ def normalize(traj, distances, topname, atomname, binWidth):
     hist = np.histogram(distances, bins=Nbins, density=False)
     density = np.array((hist[1][1:], hist[0]/(Nframes*binVolume)))
 
+    # Write the histogram to file
+    header = f'{atomname} number density ({outname}) \nDistance, nm; Number density, nm^-3'
+    filename = f'{outname}-NumberDensity.dat'
+    np.savetxt(filename, density.T, fmt='%.6f', header=header)
+
     return density
 
+# Plots the number density profile
+def plotProfile(density, filename, color, label, x_min, x_max):
+    plt.rcParams.update({'font.size': 14})
 
-trajname = '/home/misha/Documents/AAMD/anatase-101-POPE-2/traj-whole-skip100.xtc'
-topname = '/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-confin-whole.gro'
+    fig, ax = plt.subplots(figsize=(12,7))
 
-# Call readXTC function
-traj = readXTC(trajname, topname, stride=400)
-print(traj)
+    ax.plot(density[0], density[1], color=color, label=label, lw=2)
+    ax.set(xlabel='Distance (nm)', ylabel='Number density $nm^{-3}$', title='')
+    plt.xlim(x_min, x_max)
+    ax.legend()
+    ax.grid()
 
-# Call getSurfaceDistance function
-distances = getSurfaceDistance(traj, topname, 'H151', 'N')
-print(distances.shape)
+    plt.savefig(filename, format='png', dpi=300, bbox_inches='tight')
+    plt.show()
 
-print(traj.unitcell_lengths[0])
-
-
-
-
-"""
-# Call selectOH function
-#OH = selectOH(topname, 'H151')
-#print(OH.shape)
-
-# Get indices of TiO2 residue without OH groups
-H151 = removeOH('/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-confin-whole.gro', 'H151', cutoff=0.12)
-print(H151.shape)
-#print(H151)
-
-# Get indices of N atoms
-top = md.load('/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-confin-whole.gro').topology
-N = top.select("name == N")
-print(N.shape)
-#print(N)
-
-# Get array of pairs N atom - all TiO2 atoms
-N1 = np.repeat(N[0], len(H151), axis=0)
-pairs = np.stack((N1, H151), axis=0).T
-#print(pairs.shape)
-print(pairs)
-
-# Load coordinates and compute distances between one N atom and all TiO2 atoms
-coordinates = md.load('/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-confin-whole.gro')
-start = time.time()
-distances = md.compute_distances(coordinates, pairs)
-end = time.time()
-print(f'Distance calculation took {round(end - start, 8)} seconds.')
-print(np.amin(distances))
-print(distances.shape)
-
-# Load coordinates and compute distances between all N atoms and all TiO2 atoms (one frame)
-N_frame = np.repeat(N, len(H151), axis=0)
-pairs_frame = np.stack((N_frame, np.tile(H151, len(N)))).T
-print(pairs_frame.shape)
-#print(pairs_frame)
-
-coordinates = md.load('/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-confin-whole.gro')
-start = time.time()
-distances = md.compute_distances(coordinates, pairs_frame)
-end = time.time()
-print(f'Distance calculation took {round(end - start, 8)} seconds.')
-distances_reshaped = np.reshape(distances, (len(N), len(H151)))
-print(distances_reshaped.shape)
-print(np.amin(distances_reshaped[0]))
-print(np.amin(distances_reshaped[1]))
-print(np.amin(distances_reshaped, axis=1))
-
-
-start = time.time()
-distances_all = md.compute_distances(traj, pairs_frame)
-end = time.time()
-print(f'Distance calculation took {round(end - start, 8)} seconds.')
-distances_reshaped = np.reshape(distances_all, (traj.n_frames, len(N), len(H151)))
-print(distances_reshaped.shape)
-#print(np.amin(distances_reshaped, axis=2))
-"""
-
-
-
+    return
