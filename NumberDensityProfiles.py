@@ -162,7 +162,7 @@ def normalize(traj, distances, topname, atomname, binWidth, outname):
 
     # Write the histogram to file
     header = f'{atomname} number density ({outname}) \nDistance, nm; Number density, nm^-3'
-    filename = f'{outname}-NumberDensity.dat'
+    filename = f'{outname}-{atomname}-NumberDensity.dat'
     np.savetxt(filename, density.T, fmt='%.6f', header=header)
 
     return density
