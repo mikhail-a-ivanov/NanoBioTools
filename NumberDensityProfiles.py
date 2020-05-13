@@ -96,20 +96,48 @@ def selectAtoms(top, atomname):
 # The distances between all the atoms and residue atoms are calculated and the minimum
 # distance between each atom and every atom of the residue is taken
 # and outputed as an array
-def getSurfaceDistance(traj, topname, resname, atomname, cutoffOH=0.12, isSlab=False, cutoffBulk=0):
+def getSurfaceDistanceSlab(traj, topname, resname, atomname, cutoffOH=0.12, cutoffBulk=0):
 
-    if not isSlab:
-        # Get indices of the residue without OH groups
-        top = md.load(topname).topology
-        selectResidue = f'resname == {resname}'
-        residue_full = top.select(selectResidue)
-        residue = removeOH(topname, resname, residue_full, cutoffOH=cutoffOH)
-    else:
-        # Get indices of the residue without OH groups and without bulk atoms
-        top = md.load(topname).topology
-        residue_modified = removeSlabBulk(topname, resname, cutoffBulk=cutoffBulk)
-        residue = removeOH(topname, resname, residue_modified, cutoffOH=cutoffOH)
+    # Get indices of the residue without OH groups and without bulk atoms
+    top = md.load(topname).topology
+    residue_modified = removeSlabBulk(topname, resname, cutoffBulk=cutoffBulk)
+    residue = removeOH(topname, resname, residue_modified, cutoffOH=cutoffOH)
 
+    # Get indices of the atoms
+    atoms = selectAtoms(top, atomname)
+
+    # Get pairs
+    atomsRepeated = np.repeat(atoms, len(residue), axis=0)
+    pairs = np.stack((atomsRepeated, np.tile(residue, len(atoms)))).T
+
+    # Compute distances
+    print(f'Computing the closest distances between "{resname}" residue and selected atoms...')
+    start = time.time()
+    distances = md.compute_distances(traj, pairs)
+    end = time.time()
+    print(f'Distance calculation took {round(end - start, 8)} seconds.\n')
+    distances_reshaped = np.reshape(distances, (traj.n_frames, len(atoms), len(residue)))
+ 
+    # distance_reshaped is an array with (N_frames * N_atoms * N_atoms_residue) shape.
+    # minimum element of the array along axis=2 means taking the distance from every frame and every atom
+    # to the nearest residue atom (hence the surface distance)  
+
+    return np.amin(distances_reshaped, axis=2).flatten()
+
+# This function takes trajectory file that is read by readXTC function, indices of atoms
+# from matching topology, the name of the residue and cutoff distance
+# for finding oxygens of OH groups in the residue.
+# The distances between all the atoms and residue atoms are calculated and the minimum
+# distance between each atom and every atom of the residue is taken
+# and outputed as an array
+def getSurfaceDistanceGeneral(traj, topname, resname, atomname, cutoffOH=0.12):
+
+    # Get indices of the residue without OH groups
+    top = md.load(topname).topology
+    selectResidue = f'resname == {resname}'
+    residue_full = top.select(selectResidue)
+    residue = removeOH(topname, resname, residue_full, cutoffOH=cutoffOH)
+   
     # Get indices of the atoms
     atoms = selectAtoms(top, atomname)
 
@@ -136,7 +164,7 @@ def getSurfaceDistance(traj, topname, resname, atomname, cutoffOH=0.12, isSlab=F
 # that is read by readXTC function, indices of atoms
 # from matching topology, name of the atoms, bin width for histogram (nm) and the name
 # of the system for the output file name.
-def normalize(traj, distances, topname, atomname, binWidth, outname):
+def normalizeSlab(traj, distances, topname, atomname, binWidth, outname):
     # Load the topology
     top = md.load(topname).topology
 
@@ -151,7 +179,7 @@ def normalize(traj, distances, topname, atomname, binWidth, outname):
     averageNumberDensity = Natoms / boxVolume
     slabSurfaceArea = box[0] * box[1]
     binVolume = binWidth * slabSurfaceArea
-    Nbins = int((max(distances) - min(distances)) / binWidth)
+    Nbins = int((np.amax(distances) - np.amin(distances)) / binWidth)
 
     print(f'Building histogram...')
     print(f'Number of frames: {Nframes}')
@@ -162,6 +190,47 @@ def normalize(traj, distances, topname, atomname, binWidth, outname):
     # Build histogram
     hist = np.histogram(distances, bins=Nbins, density=False)
     density = np.array((hist[1][1:], hist[0]/(Nframes*binVolume)))
+
+    # Write the histogram to file
+    header = f'{atomname} number density ({outname}) \nDistance, nm; Number density, nm^-3'
+    filename = f'{outname}-{atomname}-NumberDensity.dat'
+    np.savetxt(filename, density.T, fmt='%.6f', header=header)
+
+    return density
+
+# This function builds histogram for the atom - residue distances. It takes trajectory file 
+# that is read by readXTC function, indices of atoms
+# from matching topology, name of the atoms, bin width for histogram (nm) and the name
+# of the system for the output file name.
+def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
+    # Load the topology
+    top = md.load(topname).topology
+
+    # Number of atoms
+    atoms = selectAtoms(top, atomname)
+    Natoms = len(atoms) 
+
+    # Normalization properties
+    box = traj.unitcell_lengths[0]
+    Nframes = traj.n_frames
+    boxVolume = box[0] * box[1] * box[2]
+    averageNumberDensity = Natoms / boxVolume
+
+    Nbins = int((np.amax(distances) - np.amin(distances)) / binWidth)
+    sphereRadii = np.linspace(np.amin(distances), np.amax(distances), Nbins)
+    binVolumes = 4 * np.pi * sphereRadii**2 * binWidth
+
+    
+    print(f'Building histogram...')
+    print(f'Number of frames: {Nframes}')
+    print(f'Average number density: {round(averageNumberDensity, 8)}')
+    print(f'Min bin volume: {np.amin(binVolumes)} nm3')
+    print(f'Max bin volume: {np.amax(binVolumes)} nm3')
+    print(f'Number of bins: {Nbins}')
+
+    # Build histogram
+    hist = np.histogram(distances, bins=Nbins, density=False)
+    density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes)))
 
     # Write the histogram to file
     header = f'{atomname} number density ({outname}) \nDistance, nm; Number density, nm^-3'
