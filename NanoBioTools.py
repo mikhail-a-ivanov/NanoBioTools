@@ -212,28 +212,28 @@ def normalizeSlab(traj, distances, topname, atomname, binWidth, outname):
 # of the system for the output file name.
 def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
     # Load the topology
-    top = md.load(topname).topology
+    #top = md.load(topname).topology
 
     # Number of atoms
-    atoms = selectAtoms(top, atomname)
-    Natoms = len(atoms) 
+    #atoms = selectAtoms(top, atomname)
+    #Natoms = len(atoms) 
 
     # Normalization properties
-    box = traj.unitcell_lengths[0]
+    #box = traj.unitcell_lengths[0]
     Nframes = traj.n_frames
-    boxVolume = box[0] * box[1] * box[2]
-    averageNumberDensity = Natoms / boxVolume
+    #boxVolume = box[0] * box[1] * box[2]
+    #averageNumberDensity = Natoms / boxVolume
 
     Nbins = int((np.amax(distances.flatten()) - np.amin(distances.flatten())) / binWidth)
-    sphereRadii = np.linspace(np.amin(distances.flatten()), np.amax(distances.flatten()), Nbins)
-    binVolumes = 4 * np.pi * sphereRadii**2 * binWidth
+    #sphereRadii = np.linspace(np.amin(distances.flatten()), np.amax(distances.flatten()), Nbins)
+    #binVolumes = 4 * np.pi * sphereRadii**2 * binWidth
 
     
     print(f'Building histogram...')
     print(f'Number of frames: {Nframes}')
-    print(f'Average number density: {round(averageNumberDensity, 8)}')
-    print(f'Min bin volume: {np.amin(binVolumes)} nm3')
-    print(f'Max bin volume: {np.amax(binVolumes)} nm3')
+    #print(f'Average number density: {round(averageNumberDensity, 8)}')
+    #print(f'Min bin volume: {np.amin(binVolumes)} nm3')
+    #print(f'Max bin volume: {np.amax(binVolumes)} nm3')
     print(f'Number of bins: {Nbins}')
 
     # Build histogram
@@ -244,20 +244,20 @@ def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
     density = np.array((hist[1][1:], hist[0]))
 
     # Write the histogram to file
-    header = f'{atomname} number density ({outname}) \nDistance, nm; Occurance'
+    header = f'{atomname} number density ({outname}) \nDistance, nm; Occurrence'
     filename = f'{outname}-{atomname}-NumberDensity.dat'
     np.savetxt(filename, density.T, fmt='%.6f', header=header)
 
     return density
 
 # Plots the number density profile
-def plotProfile(density, filename, color, label, x_min, x_max):
+def plotDensityProfile(density, filename, color, label, x_min, x_max):
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(figsize=(12,7))
 
     ax.plot(density[0], density[1], color=color, label=label, lw=2)
-    ax.set(xlabel='Distance (nm)', ylabel='Number density (nm^-3)', title='')
+    ax.set(xlabel='Distance (nm)', ylabel='Number density ($nm^{-3}$)', title='')
     plt.xlim(x_min, x_max)
     ax.legend()
     ax.grid()
@@ -267,14 +267,14 @@ def plotProfile(density, filename, color, label, x_min, x_max):
 
     return
 
-# Plots the histogram
-def plotHistogram(density, filename, color, label, width, x_min, x_max):
+# Plots the density histogram (for spheres)
+def plotDensityHistogram(density, filename, color, label, width, x_min, x_max):
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(figsize=(12,7))
 
     ax.bar(density[0], density[1], edgecolor='black', color=color, label=label, width=width, alpha=0.5)
-    ax.set(xlabel='Distance (nm)', ylabel='Occurance', title='')
+    ax.set(xlabel='Distance (nm)', ylabel='Occurrence', title='')
     plt.xlim(x_min, x_max)
     ax.legend()
     ax.grid()
@@ -284,28 +284,61 @@ def plotHistogram(density, filename, color, label, width, x_min, x_max):
 
     return
 
+
 # Auxiliary function to calculate lengths of sequences of ones for 0,1 arrays
-def runs_of_ones(bits):
+def runsOfOnes(bits):
     return [sum(g) for b, g in itertools.groupby(bits) if b]
 
 
-# distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns 
-def residence_time(distances, atomname, resname, outname, distance_threshold=0.35, total_simulation_time=1000, timestep=0.5):
+# This function builds a histogram of lengths of binding events
+# Distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns 
+def getResidenceTime(distances, atomname, resname, outname, distance_threshold=0.35, timestep=0.5, Nbins=100):
+
+    # Total simulation time is the number of frames multiplied by the timestep minus the first frame of the simulation
+    total_simulation_time = (len(distances.T) - 1) * timestep
+
+    print(f'Calculating residence time for {resname}-{atomname} pair with the distance threshold of {distance_threshold} nm.\n\
+Total simulation time = {total_simulation_time} ns, time step = {timestep} ns.\n\
+Using {Nbins} bins for building the histogram.\n')
 
     # Get 0,1 array where 1 corresponds to bonded state and 0 to non-bonded state
     bonded_states = (distances < distance_threshold).astype(np.int) 
 
-    # Take the fraction of bonded states and multiply by the total time to get total bonded time
-    total_bonded_time = np.mean(bonded_states, axis=1)*total_simulation_time
+    # Loop over all atoms and binding events
+    residence_times = []
+    for i in range(len(bonded_states)):
+        residence_times += runsOfOnes(bonded_states[i])
 
-    # Build histogram
-    total_bonded_time_histogram = np.histogram(total_bonded_time, bins=10, density=False)
-    total_bonded_time_bins = total_bonded_time_histogram[1][1:]
-    bonded_atoms_occurance = total_bonded_time_histogram[0]
+    # Build the histogram
+    hist = np.histogram(np.array(residence_times) * timestep, bins=Nbins, density=False)
+    bins = hist[1][1:]
+    # Normalize the occurrence in such a way that it is divided by the total possible number of such events
+    # e.g. with 1000 ns total simulation time the occurrence of 10 ns binding events is divided by 100, etc.
+    occurrence = hist[0]*(bins/total_simulation_time)
 
+    residence_time_data = np.array((bins, occurrence))
+        
     # Write the histogram to file
-    header = f'{atomname}-{resname} total bonded time histogram ({outname}) \nBins; Occurance'
-    filename = f'{outname}-TotalBondedTime.dat'
-    np.savetxt(filename, density.T, fmt='%.6f', header=header)
+    header = f'{outname}-{atomname}-ResidenceTime \nDistance threshold = {distance_threshold} nm; Total simulation time = {total_simulation_time};\
+Time step = {timestep} ns; Number of bins = {Nbins} \nResidence time, ns; Occurrence'
+    filename = f'{outname}-{atomname}-ResidenceTime.dat'
+    np.savetxt(filename, residence_time_data.T, fmt='%.6f', header=header)
+
+    return residence_time_data
+
+
+# Plots the residence time histogram
+def plotResidenceHistogram(residence_time_data, filename, color, label, width=5):
+    plt.rcParams.update({'font.size': 14})
+
+    fig, ax = plt.subplots(figsize=(12,7))
+
+    ax.bar(residence_time_data[0], residence_time_data[1], color=color, label=label, width=width, alpha=0.75)
+    ax.set(xlabel='Residence time (ns)', ylabel='Occurrence', title='')
+    ax.legend()
+    ax.grid()
+
+    plt.savefig(filename, format='png', dpi=300, bbox_inches='tight')
+    plt.show()
 
     return
