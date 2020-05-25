@@ -267,7 +267,7 @@ def plotProfile(density, filename, color, label, x_min, x_max):
 
     return
 
-# Plots the number density profile
+# Plots the histogram
 def plotHistogram(density, filename, color, label, width, x_min, x_max):
     plt.rcParams.update({'font.size': 14})
 
