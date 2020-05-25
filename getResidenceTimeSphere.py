@@ -12,7 +12,7 @@ topname = '/home/misha/Documents/AAMD/anatase-NP-POPE/confin-whole-nowater.gro'
 traj = readXTC(trajname, topname, stride=1)
 
 # Call getSurfaceDistance function
-distances = getSurfaceDistanceGeneral(traj, topname, resname='H144', atomname='N')
+distances = getSurfaceDistanceGeneral(traj, topname, resname='H144', atomname='N', resname_molecule='POPE')
 
 # Get residence times
 residence_time = getResidenceTime(distances, atomname='N', resname='H144', outname='anatase-NP-2nm-POPE', distance_threshold=0.35, timestep=0.5, Nbins=50)

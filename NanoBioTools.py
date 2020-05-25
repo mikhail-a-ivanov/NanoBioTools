@@ -85,10 +85,10 @@ def removeOH(topname, resname, residue, cutoffOH = 0.12):
 
 
 # Select atoms from a topology and return list of indices of the atoms
-def selectAtoms(top, atomname):
-    selectAtoms = f'name == {atomname}'
+def selectAtoms(top, resname, atomname):
+    selectAtoms = f'resname == {resname} and name == {atomname}'
     atoms = top.select(selectAtoms)
-    print(f'Selecting {len(atoms)} "{atomname}" atoms...')
+    print(f'Selecting {len(atoms)} "{atomname}" atoms from resname "{resname}"')
     return atoms
 
 
@@ -100,7 +100,7 @@ def selectAtoms(top, atomname):
 # and outputed as an array
 
 # analyze one frame at a time?
-def getSurfaceDistanceSlab(traj, topname, resname, atomname, cutoffOH=0.12, cutoffBulk=0):
+def getSurfaceDistanceSlab(traj, topname, resname, atomname, resname_molecule, cutoffOH=0.12, cutoffBulk=0):
 
     # Get indices of the residue without OH groups and without bulk atoms
     top = md.load(topname).topology
@@ -108,7 +108,7 @@ def getSurfaceDistanceSlab(traj, topname, resname, atomname, cutoffOH=0.12, cuto
     residue = removeOH(topname, resname, residue_modified, cutoffOH=cutoffOH)
 
     # Get indices of the atoms
-    atoms = selectAtoms(top, atomname)
+    atoms = selectAtoms(top, resname_molecule, atomname)
 
     # Get pairs
     atomsRepeated = np.repeat(atoms, len(residue), axis=0)
@@ -136,7 +136,7 @@ def getSurfaceDistanceSlab(traj, topname, resname, atomname, cutoffOH=0.12, cuto
 # The distances between all the atoms and residue atoms are calculated and the minimum
 # distance between each atom and every atom of the residue is taken
 # and outputed as an array
-def getSurfaceDistanceGeneral(traj, topname, resname, atomname, cutoffOH=0.12):
+def getSurfaceDistanceGeneral(traj, topname, resname, atomname, resname_molecule, cutoffOH=0.12):
 
     # Get indices of the residue without OH groups
     top = md.load(topname).topology
@@ -145,7 +145,7 @@ def getSurfaceDistanceGeneral(traj, topname, resname, atomname, cutoffOH=0.12):
     residue = removeOH(topname, resname, residue_full, cutoffOH=cutoffOH)
    
     # Get indices of the atoms
-    atoms = selectAtoms(top, atomname)
+    atoms = selectAtoms(top, resname_molecule, atomname)
 
     # Get pairs
     atomsRepeated = np.repeat(atoms, len(residue), axis=0)
@@ -172,12 +172,12 @@ def getSurfaceDistanceGeneral(traj, topname, resname, atomname, cutoffOH=0.12):
 # that is read by readXTC function, indices of atoms
 # from matching topology, name of the atoms, bin width for histogram (nm) and the name
 # of the system for the output file name.
-def normalizeSlab(traj, distances, topname, atomname, binWidth, outname):
+def normalizeSlab(traj, distances, topname, atomname, resname_molecule, binWidth, outname):
     # Load the topology
     top = md.load(topname).topology
 
     # Number of atoms
-    atoms = selectAtoms(top, atomname)
+    atoms = selectAtoms(top, resname_molecule, atomname)
     Natoms = len(atoms) 
 
     # Normalization properties
@@ -244,7 +244,7 @@ def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
     density = np.array((hist[1][1:], hist[0]))
 
     # Write the histogram to file
-    header = f'{atomname} number density ({outname}) \nDistance, nm; Occurrence'
+    header = f'{atomname} number density (not normalized) ({outname}) \nDistance, nm; Occurrence'
     filename = f'{outname}-{atomname}-NumberDensity.dat'
     np.savetxt(filename, density.T, fmt='%.6f', header=header)
 
@@ -320,7 +320,7 @@ Using {Nbins} bins for building the histogram.\n')
         
     # Write the histogram to file
     header = f'{outname}-{atomname}-ResidenceTime \nDistance threshold = {distance_threshold} nm; Total simulation time = {total_simulation_time};\
-Time step = {timestep} ns; Number of bins = {Nbins} \nResidence time, ns; Occurrence'
+ Time step = {timestep} ns; Number of bins = {Nbins} \nResidence time, ns; Occurrence'
     filename = f'{outname}-{atomname}-ResidenceTime.dat'
     np.savetxt(filename, residence_time_data.T, fmt='%.6f', header=header)
 

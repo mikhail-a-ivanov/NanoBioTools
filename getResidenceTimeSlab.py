@@ -12,7 +12,7 @@ topname = '/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-conf
 traj = readXTC(trajname, topname, stride=1)
 
 # Call getSurfaceDistance function
-distances = getSurfaceDistanceSlab(traj, topname, resname='H151', atomname='N', cutoffBulk=1.25)
+distances = getSurfaceDistanceSlab(traj, topname, resname='H151', atomname='N', resname_molecule='POPE', cutoffBulk=1.25)
 
 # Get residence times
 residence_time = getResidenceTime(distances, atomname='N', resname='H151', outname='anatase-101-POPE-2', distance_threshold=0.35, timestep=0.5, Nbins=100)

@@ -12,10 +12,10 @@ topname = '/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-conf
 traj = readXTC(trajname, topname, stride=1)
 
 # Call getSurfaceDistance function
-distances = getSurfaceDistanceSlab(traj, topname, resname='H151', atomname='N', cutoffBulk=1.25)
+distances = getSurfaceDistanceSlab(traj, topname, resname='H151', atomname='N', resname_molecule='POPE', cutoffBulk=1.25)
 
 # Normalize density
-density = normalizeSlab(traj, distances, topname, atomname='N', binWidth=0.01, outname='anatase-101-POPE-2')
+density = normalizeSlab(traj, distances, topname, atomname='N', resname_molecule='POPE', binWidth=0.01, outname='anatase-101-POPE-2')
 
 # Plot the profile
 plotDensityProfile(density, filename='anatase-101-POPE-2-N-NumberDensity.png', color='navy', label='N(PE)-TiO$_2$', x_min=0, x_max=1.5)

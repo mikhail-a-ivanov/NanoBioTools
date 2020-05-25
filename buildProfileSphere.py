@@ -12,7 +12,7 @@ topname = '/home/misha/Documents/AAMD/anatase-NP-POPE/confin-whole-nowater.gro'
 traj = readXTC(trajname, topname, stride=1)
 
 # Call getSurfaceDistance function
-distances = getSurfaceDistanceGeneral(traj, topname, resname='H144', atomname='N')
+distances = getSurfaceDistanceGeneral(traj, topname, resname='H144', atomname='N', resname_molecule='POPE')
 
 # Normalize density
 density = normalizeSphere(traj, distances, topname, atomname='N', binWidth=0.01, outname='anatase-NP-2nm-POPE')
