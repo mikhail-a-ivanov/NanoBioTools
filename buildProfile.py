@@ -3,7 +3,7 @@ import mdtraj as md
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import time
-from NumberDensityProfiles import readXTC, getSurfaceDistanceGeneral, getSurfaceDistanceSlab, normalizeSlab, normalizeSphere, plotProfile
+from NumberDensityProfiles import readXTC, getSurfaceDistanceGeneral, getSurfaceDistanceSlab, normalizeSlab, normalizeSphere, plotProfile, plotHistogram
 
 #trajname = '/home/misha/Documents/AAMD/anatase-101-POPE-2/traj-whole-skip100.xtc'
 #topname = '/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-confin-whole.gro'
@@ -20,8 +20,11 @@ distances = getSurfaceDistanceGeneral(traj, topname, resname='H144', atomname='N
 
 # Normalize density
 #density = normalizeSlab(traj, distances, topname, atomname='N', binWidth=0.01, outname='anatase-101-POPE-2')
-density = normalizeSphere(traj, distances, topname, atomname='N', binWidth=0.005, outname='anatase-NP-2nm-POPE')
+density = normalizeSphere(traj, distances, topname, atomname='N', binWidth=0.01, outname='anatase-NP-2nm-POPE')
 
 # Plot the profile
-plotProfile(density, filename='anatase-NP-2nm-POPE-N-NumberDensity.png', color='navy', label='N(PE)-TiO$_2$', x_min=0, x_max=1.5)
-plotProfile(density, filename='anatase-NP-2nm-POPE-N-NumberDensity-long.png', color='navy', label='N(PE)-TiO$_2$', x_min=0, x_max=4.5)
+#plotProfile(density, filename='anatase-NP-2nm-POPE-N-NumberDensity.png', color='navy', label='N(PE)-TiO$_2$', x_min=0, x_max=1.5)
+#plotProfile(density, filename='anatase-NP-2nm-POPE-N-NumberDensity-long.png', color='navy', label='N(PE)-TiO$_2$', x_min=0, x_max=4.5)
+
+plotHistogram(density, filename='anatase-NP-2nm-POPE-N-NumberDensity.png', color='navy', label='N(PE)-TiO$_2$', width=0.01, x_min=0, x_max=1.5)
+plotHistogram(density, filename='anatase-NP-2nm-POPE-N-NumberDensity-long.png', color='navy', label='N(PE)-TiO$_2$', width=0.01, x_min=0, x_max=4.5)

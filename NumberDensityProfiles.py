@@ -2,7 +2,9 @@ import numpy as np
 import mdtraj as md
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import itertools
 import time
+
 
 # A function that reads XTC trajectory file and returns MDtraj trajectory object
 def readXTC(trajname, topname, stride=1):
@@ -96,6 +98,8 @@ def selectAtoms(top, atomname):
 # The distances between all the atoms and residue atoms are calculated and the minimum
 # distance between each atom and every atom of the residue is taken
 # and outputed as an array
+
+# analyze one frame at a time?
 def getSurfaceDistanceSlab(traj, topname, resname, atomname, cutoffOH=0.12, cutoffBulk=0):
 
     # Get indices of the residue without OH groups and without bulk atoms
@@ -122,7 +126,9 @@ def getSurfaceDistanceSlab(traj, topname, resname, atomname, cutoffOH=0.12, cuto
     # minimum element of the array along axis=2 means taking the distance from every frame and every atom
     # to the nearest residue atom (hence the surface distance)  
 
-    return np.amin(distances_reshaped, axis=2).flatten()
+    # Returns an array of atom-to-surface distances with (N_atoms, N_frames) shape  
+
+    return np.amin(distances_reshaped, axis=2).T
 
 # This function takes trajectory file that is read by readXTC function, indices of atoms
 # from matching topology, the name of the residue and cutoff distance
@@ -155,9 +161,11 @@ def getSurfaceDistanceGeneral(traj, topname, resname, atomname, cutoffOH=0.12):
  
     # distance_reshaped is an array with (N_frames * N_atoms * N_atoms_residue) shape.
     # minimum element of the array along axis=2 means taking the distance from every frame and every atom
-    # to the nearest residue atom (hence the surface distance)  
+    # to the nearest residue atom (hence the surface distance)
+    
+    # Returns an array of atom-to-surface distances with (N_atoms, N_frames) shape   
 
-    return np.amin(distances_reshaped, axis=2).flatten()
+    return np.amin(distances_reshaped, axis=2).T
 
 
 # This function builds histogram for the atom - residue distances. It takes trajectory file 
@@ -179,7 +187,7 @@ def normalizeSlab(traj, distances, topname, atomname, binWidth, outname):
     averageNumberDensity = Natoms / boxVolume
     slabSurfaceArea = box[0] * box[1]
     binVolume = binWidth * slabSurfaceArea
-    Nbins = int((np.amax(distances) - np.amin(distances)) / binWidth)
+    Nbins = int((np.amax(distances.flatten()) - np.amin(distances.flatten())) / binWidth)
 
     print(f'Building histogram...')
     print(f'Number of frames: {Nframes}')
@@ -188,7 +196,7 @@ def normalizeSlab(traj, distances, topname, atomname, binWidth, outname):
     print(f'Number of bins: {Nbins}')
 
     # Build histogram
-    hist = np.histogram(distances, bins=Nbins, density=False)
+    hist = np.histogram(distances.flatten(), bins=Nbins, density=False)
     density = np.array((hist[1][1:], hist[0]/(Nframes*binVolume)))
 
     # Write the histogram to file
@@ -216,8 +224,8 @@ def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
     boxVolume = box[0] * box[1] * box[2]
     averageNumberDensity = Natoms / boxVolume
 
-    Nbins = int((np.amax(distances) - np.amin(distances)) / binWidth)
-    sphereRadii = np.linspace(np.amin(distances), np.amax(distances), Nbins)
+    Nbins = int((np.amax(distances.flatten()) - np.amin(distances.flatten())) / binWidth)
+    sphereRadii = np.linspace(np.amin(distances.flatten()), np.amax(distances.flatten()), Nbins)
     binVolumes = 4 * np.pi * sphereRadii**2 * binWidth
 
     
@@ -229,11 +237,14 @@ def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
     print(f'Number of bins: {Nbins}')
 
     # Build histogram
-    hist = np.histogram(distances, bins=Nbins, density=False)
-    density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes)))
+    hist = np.histogram(distances.flatten(), bins=Nbins, density=False)
+    #density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes))) # It seems that it is a wrong way to normalize
+    # the density (due to the fact that it is not clear how to estimate the bin volume?)
+
+    density = np.array((hist[1][1:], hist[0]))
 
     # Write the histogram to file
-    header = f'{atomname} number density ({outname}) \nDistance, nm; Number density, nm^-3'
+    header = f'{atomname} number density ({outname}) \nDistance, nm; Occurance'
     filename = f'{outname}-{atomname}-NumberDensity.dat'
     np.savetxt(filename, density.T, fmt='%.6f', header=header)
 
@@ -246,12 +257,55 @@ def plotProfile(density, filename, color, label, x_min, x_max):
     fig, ax = plt.subplots(figsize=(12,7))
 
     ax.plot(density[0], density[1], color=color, label=label, lw=2)
-    ax.set(xlabel='Distance (nm)', ylabel='Number density $nm^{-3}$', title='')
+    ax.set(xlabel='Distance (nm)', ylabel='Number density (nm^-3)', title='')
     plt.xlim(x_min, x_max)
     ax.legend()
     ax.grid()
 
     plt.savefig(filename, format='png', dpi=300, bbox_inches='tight')
     plt.show()
+
+    return
+
+# Plots the number density profile
+def plotHistogram(density, filename, color, label, width, x_min, x_max):
+    plt.rcParams.update({'font.size': 14})
+
+    fig, ax = plt.subplots(figsize=(12,7))
+
+    ax.bar(density[0], density[1], edgecolor='black', color=color, label=label, width=width, alpha=0.5)
+    ax.set(xlabel='Distance (nm)', ylabel='Occurance', title='')
+    plt.xlim(x_min, x_max)
+    ax.legend()
+    ax.grid()
+
+    plt.savefig(filename, format='png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+    return
+
+# Auxiliary function to calculate lengths of sequences of ones for 0,1 arrays
+def runs_of_ones(bits):
+    return [sum(g) for b, g in itertools.groupby(bits) if b]
+
+
+# distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns 
+def residence_time(distances, atomname, resname, outname, distance_threshold=0.35, total_simulation_time=1000, timestep=0.5):
+
+    # Get 0,1 array where 1 corresponds to bonded state and 0 to non-bonded state
+    bonded_states = (distances < distance_threshold).astype(np.int) 
+
+    # Take the fraction of bonded states and multiply by the total time to get total bonded time
+    total_bonded_time = np.mean(bonded_states, axis=1)*total_simulation_time
+
+    # Build histogram
+    total_bonded_time_histogram = np.histogram(total_bonded_time, bins=10, density=False)
+    total_bonded_time_bins = total_bonded_time_histogram[1][1:]
+    bonded_atoms_occurance = total_bonded_time_histogram[0]
+
+    # Write the histogram to file
+    header = f'{atomname}-{resname} total bonded time histogram ({outname}) \nBins; Occurance'
+    filename = f'{outname}-TotalBondedTime.dat'
+    np.savetxt(filename, density.T, fmt='%.6f', header=header)
 
     return
