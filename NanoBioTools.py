@@ -172,7 +172,7 @@ def getSurfaceDistanceGeneral(traj, topname, resname, atomname, resname_molecule
 # that is read by readXTC function, indices of atoms
 # from matching topology, name of the atoms, bin width for histogram (nm) and the name
 # of the system for the output file name.
-def normalizeSlab(traj, distances, topname, atomname, resname_molecule, binWidth, outname):
+def normalizeSlab(traj, distances, topname, outname, atomname, resname_molecule, binWidth=0.01, r_max=1.5):
     # Load the topology
     top = md.load(topname).topology
 
@@ -187,7 +187,10 @@ def normalizeSlab(traj, distances, topname, atomname, resname_molecule, binWidth
     averageNumberDensity = Natoms / boxVolume
     slabSurfaceArea = box[0] * box[1]
     binVolume = binWidth * slabSurfaceArea
-    Nbins = int((np.amax(distances.flatten()) - np.amin(distances.flatten())) / binWidth)
+    # Flexible bin values
+    #Nbins = int((np.amax(distances.flatten()) - np.amin(distances.flatten())) / binWidth)
+    # Fixed bin values
+    Nbins = int(r_max / binWidth)
 
     print(f'Building histogram...')
     print(f'Number of frames: {Nframes}')
@@ -196,7 +199,7 @@ def normalizeSlab(traj, distances, topname, atomname, resname_molecule, binWidth
     print(f'Number of bins: {Nbins}')
 
     # Build histogram
-    hist = np.histogram(distances.flatten(), bins=Nbins, density=False)
+    hist = np.histogram(distances.flatten(), bins=Nbins, range=(0, r_max), density=False)
     density = np.array((hist[1][1:], hist[0]/(Nframes*binVolume)))
 
     # Write the histogram to file
@@ -210,7 +213,7 @@ def normalizeSlab(traj, distances, topname, atomname, resname_molecule, binWidth
 # that is read by readXTC function, indices of atoms
 # from matching topology, name of the atoms, bin width for histogram (nm) and the name
 # of the system for the output file name.
-def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
+def normalizeSphere(traj, distances, topname, outname, atomname, binWidth=0.01, r_max=1.5):
     # Load the topology
     #top = md.load(topname).topology
 
@@ -224,7 +227,11 @@ def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
     #boxVolume = box[0] * box[1] * box[2]
     #averageNumberDensity = Natoms / boxVolume
 
-    Nbins = int((np.amax(distances.flatten()) - np.amin(distances.flatten())) / binWidth)
+    # Flexible bin values
+    #Nbins = int((np.amax(distances.flatten()) - np.amin(distances.flatten())) / binWidth)
+    # Fixed bin values
+    Nbins = int(r_max / binWidth)
+
     #sphereRadii = np.linspace(np.amin(distances.flatten()), np.amax(distances.flatten()), Nbins)
     #binVolumes = 4 * np.pi * sphereRadii**2 * binWidth
 
@@ -237,7 +244,7 @@ def normalizeSphere(traj, distances, topname, atomname, outname, binWidth=0.01):
     print(f'Number of bins: {Nbins}')
 
     # Build histogram
-    hist = np.histogram(distances.flatten(), bins=Nbins, density=False)
+    hist = np.histogram(distances.flatten(), bins=Nbins, range=(0, r_max), density=False)
     #density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes))) # It seems that it is a wrong way to normalize
     # the density (due to the fact that it is not clear how to estimate the bin volume?)
 

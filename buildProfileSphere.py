@@ -15,7 +15,7 @@ traj = readXTC(trajname, topname, stride=1)
 distances = getSurfaceDistanceGeneral(traj, topname, resname='H144', atomname='N', resname_molecule='POPE')
 
 # Normalize density
-density = normalizeSphere(traj, distances, topname, atomname='N', binWidth=0.01, outname='anatase-NP-2nm-POPE')
+density = normalizeSphere(traj, distances, topname, outname='anatase-NP-2nm-POPE', atomname='N', binWidth=0.01, r_max=1.5)
 
 # Plot the profile
 plotDensityHistogram(density, filename='anatase-NP-2nm-POPE-N-NumberDensity.png', color='navy', label='N(PE)-TiO$_2$', width=0.01, x_min=0, x_max=1.5)
