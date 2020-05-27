@@ -213,7 +213,7 @@ def normalizeSlab(traj, distances, topname, outname, atomname, resname_molecule,
 # that is read by readXTC function, indices of atoms
 # from matching topology, name of the atoms, bin width for histogram (nm) and the name
 # of the system for the output file name.
-def normalizeSphere(traj, distances, topname, outname, atomname, binWidth=0.01, r_max=1.5):
+def normalizeGeneral(traj, distances, topname, outname, atomname, binWidth=0.01, r_max=1.5):
     # Load the topology
     #top = md.load(topname).topology
 
@@ -248,7 +248,8 @@ def normalizeSphere(traj, distances, topname, outname, atomname, binWidth=0.01, 
     #density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes))) # It seems that it is a wrong way to normalize
     # the density (due to the fact that it is not clear how to estimate the bin volume?)
 
-    density = np.array((hist[1][1:], hist[0]))
+    # Instead, I will do a general normalization where I divide the occurenece by the number of frames and multiply by the number of bins
+    density = np.array((hist[1][1:], Nbins * hist[0]/Nframes))
 
     # Write the histogram to file
     header = f'{atomname} number density (not normalized) ({outname}) \nDistance, nm; Occurrence'
@@ -275,13 +276,13 @@ def plotDensityProfile(density, filename, color, label, x_min, x_max):
     return
 
 # Plots the density histogram (for spheres)
-def plotDensityHistogram(density, filename, color, label, width, x_min, x_max):
+def plotDensityHistogram(density, filename, color, label, x_min, x_max):
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(figsize=(12,7))
 
-    ax.bar(density[0], density[1], edgecolor='black', color=color, label=label, width=width, alpha=0.5)
-    ax.set(xlabel='Distance (nm)', ylabel='Occurrence', title='')
+    ax.plot(density[0], density[1], color=color, label=label, lw=2)
+    ax.set(xlabel='Distance (nm)', ylabel='Occurence', title='')
     plt.xlim(x_min, x_max)
     ax.legend()
     ax.grid()
@@ -297,7 +298,7 @@ def runsOfOnes(bits):
     return [sum(g) for b, g in itertools.groupby(bits) if b]
 
 
-# This function builds a histogram of lengths of binding events
+# This function builds a histogram of lengths of binding events and returns a weighted average of the mean residence time
 # Distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns 
 def getResidenceTime(distances, atomname, resname, outname, distance_threshold=0.35, timestep=0.5, Nbins=100):
 
@@ -331,7 +332,11 @@ Using {Nbins} bins for building the histogram.\n')
     filename = f'{outname}-{atomname}-ResidenceTime.dat'
     np.savetxt(filename, residence_time_data.T, fmt='%.6f', header=header)
 
-    return residence_time_data
+    # Estimate mean (lower bound) for the residence time
+    mean_residence_time = round(np.average(bins, weights=occurrence), 1)
+    print(f'Mean residence time = {mean_residence_time} ns')
+
+    return residence_time_data, mean_residence_time
 
 
 # Plots the residence time histogram

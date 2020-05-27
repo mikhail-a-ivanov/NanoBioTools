@@ -3,7 +3,7 @@ import mdtraj as md
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import time
-from NanoBioTools import readXTC, getSurfaceDistanceSlab, plotResidenceHistogram, getResidenceTime, plotResidenceHistogram
+from NanoBioTools import readXTC, getSurfaceDistanceSlab, plotResidenceHistogram, getResidenceTime
 
 trajname = '/home/misha/Documents/AAMD/anatase-101-POPE-2/traj-whole-skip100.xtc'
 topname = '/home/misha/Documents/AAMD/anatase-101-POPE-2/anatase-101-POPE-2-confin-whole.gro'
