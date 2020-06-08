@@ -332,7 +332,8 @@ Using {Nbins} bins for building the histogram.\n')
     residence_time_data = np.array((bins, occurrence))
         
     # Write the histogram to file
-    header = f'{outname}-{atomname}-ResidenceTime \nDistance threshold = {distance_threshold} nm; Total simulation time = {total_simulation_time};\
+    header = f'{outname}-{atomname}-ResidenceTime \nDistance min = {distance_min} nm; Distance max = {distance_max} nm; \
+ Total simulation time = {total_simulation_time};\
  Time step = {timestep} ns; Number of bins = {Nbins} \nResidence time, ns; Occurrence'
     filename = f'{outname}-{atomname}-ResidenceTime.dat'
     np.savetxt(filename, residence_time_data.T, fmt='%.6f', header=header)
