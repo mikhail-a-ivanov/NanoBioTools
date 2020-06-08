@@ -299,8 +299,10 @@ def runsOfOnes(bits):
 
 
 # This function builds a histogram of lengths of binding events and returns a weighted average of the mean residence time
-# Distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns 
-def getResidenceTime(distances, atomname, resname, outname, distance_threshold=0.35, timestep=0.5, Nbins=100):
+# Distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns
+# The function takes two distance threshold values - distance_min and distance_max. That allows
+# to get residence times for separate atom density peaks 
+def getResidenceTime(distances, atomname, resname, outname, distance_min=0.25, distance_max=0.35, timestep=0.5, Nbins=100):
 
     # Total simulation time is the number of frames multiplied by the timestep minus the first frame of the simulation
     total_simulation_time = (len(distances.T) - 1) * timestep
@@ -309,8 +311,11 @@ def getResidenceTime(distances, atomname, resname, outname, distance_threshold=0
 Total simulation time = {total_simulation_time} ns, time step = {timestep} ns.\n\
 Using {Nbins} bins for building the histogram.\n')
 
+    # Get 0,1 array where 1 corresponds to bonded state and 0 to non-bonded state (max distance threshold only)
+    #bonded_states = (distances < distance_threshold).astype(np.int)
+     
     # Get 0,1 array where 1 corresponds to bonded state and 0 to non-bonded state
-    bonded_states = (distances < distance_threshold).astype(np.int) 
+    bonded_states = np.logical_and(distances < distance_max, distances > distance_min).astype(int)
 
     # Loop over all atoms and binding events
     residence_times = []
