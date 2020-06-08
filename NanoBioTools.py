@@ -307,7 +307,7 @@ def getResidenceTime(distances, atomname, resname, outname, distance_min=0.25, d
     # Total simulation time is the number of frames multiplied by the timestep minus the first frame of the simulation
     total_simulation_time = (len(distances.T) - 1) * timestep
 
-    print(f'Calculating residence time for {resname}-{atomname} pair with the distance threshold of {distance_threshold} nm.\n\
+    print(f'Calculating residence time for {resname}-{atomname} pair with the min distance of {distance_min} nm and max distance of {distance_max} nm.\n\
 Total simulation time = {total_simulation_time} ns, time step = {timestep} ns.\n\
 Using {Nbins} bins for building the histogram.\n')
 
