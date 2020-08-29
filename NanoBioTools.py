@@ -92,6 +92,56 @@ def selectAtoms(top, resname, atomname):
     return atoms
 
 
+# This function calculates distance from COM of every lipid molecule to the slab surface
+# along the normal (difference in Z coordinates of lipid COM and the slab surface atom)
+# By looking at lipid COM - time plot one can judge if there are any lipid flip flops (lipid diffusion along the bilayer normal)
+# The function also outputs indeces of lipids, belonging to the bottom or the upper bilayer leaflet
+
+def getBilayerLeaflets(topname, resname, lipid_resname, cutoffOH=0.12):
+
+    # Get indices of the residue without OH groups
+    top = md.load(topname).topology
+    selectResidue = f'resname == {resname}'
+    residue = top.select(selectResidue)
+    assert residue.size != 0, ('Residue atoms selection is empty. Please check the name of the residue or the topology file.')
+    residue_without_OH = removeOH(topname, resname, residue, cutoffOH=cutoffOH)
+
+    # Load coordinates of the residue atoms
+    coordinates_all = md.load(topname)
+    coordinates_residue = coordinates_all.atom_slice(residue_without_OH)
+
+    # Compute slab COM, Z_max and Z_min
+    slab_com = md.compute_center_of_geometry(coordinates_residue)
+    slab_Z_com = slab_com[0][2]
+    slab_Z_max = np.amax(coordinates_residue.xyz[0].T[2])
+    slab_Z_min = np.amin(coordinates_residue.xyz[0].T[2])
+
+    print(f'Slab COM = {slab_Z_com:.4f} nm')
+    print(f'Slab max Z coordinate = {slab_Z_max:.4f} nm')
+    print(f'Slab min Z coordinate = {slab_Z_min:.4f} nm')
+
+    # Pick lipid residues
+    # The list will contain indices of lipid residues (molecules)
+    lipids = []
+    
+    # Loop over all residues and save indices
+    # of residues that contain 'lipid_resname' in their names
+    for residue in top.residues:
+        if lipid_resname in residue.name:
+            lipids.append(residue.index)
+    
+    print(lipids)
+
+    # To select a residue based on its index
+    # use 'resid' == [index] 
+    selectLipid = f'resid == 1'
+    lipid_test = top.select(selectLipid)
+    print(lipid_test)
+
+    return
+
+
+
 # This function takes trajectory file that is read by readXTC function, indices of atoms
 # from matching topology, the name of the residue and cutoff distance
 # for finding oxygens of OH groups in the residue.
