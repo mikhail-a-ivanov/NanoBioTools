@@ -390,7 +390,7 @@ Using {Nbins} bins for building the histogram.\n')
  Time step = {timestep} ns; Number of bins = {Nbins} \nResidence time, ns; Occurrence'
     filename = f'{outname}-{atomname}-ResidenceTime.dat'
     np.savetxt(filename, residence_time_data.T, fmt='%.6f', header=header)
-    print(f'Residence time data is writtent to {filename}.')
+    print(f'Residence time data is written to {filename}.')
 
      # Write the normalized histogram to file
     header_normalized = f'{outname}-{atomname}-ResidenceTime-normalized \nDistance min = {distance_min} nm; Distance max = {distance_max} nm; \
@@ -398,7 +398,7 @@ Using {Nbins} bins for building the histogram.\n')
  Time step = {timestep} ns; Number of bins = {Nbins} \nResidence time, ns; Occurrence'
     filename_normalized = f'{outname}-{atomname}-ResidenceTime-normalized.dat'
     np.savetxt(filename_normalized, residence_time_data_normalized.T, fmt='%.6f', header=header_normalized)
-    print(f'Residence time data is writtent to {filename_normalized}.')
+    print(f'Residence time data is written to {filename_normalized}.')
 
     # Estimate mean (lower bound) for the residence time
     mean_residence_time = round(np.average(bins, weights=occurrence_normalized), 1)
