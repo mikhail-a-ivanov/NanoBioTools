@@ -375,11 +375,14 @@ Using {Nbins} bins for building the histogram.\n')
     # Build the histogram
     hist = np.histogram(np.array(residence_times) * timestep, bins=Nbins, density=False)
     bins = hist[1][1:]
+    occurrence= hist[0]
     # Normalize the occurrence in such a way that it is divided by the total possible number of such events
     # e.g. with 1000 ns total simulation time the occurrence of 10 ns binding events is divided by 100, etc.
-    occurrence = hist[0]*(bins/total_simulation_time)
+    occurrence_normalized = hist[0]*(bins/total_simulation_time)
 
     residence_time_data = np.array((bins, occurrence))
+
+    residence_time_data_normalized = np.array((bins, occurrence_normalized))
         
     # Write the histogram to file
     header = f'{outname}-{atomname}-ResidenceTime \nDistance min = {distance_min} nm; Distance max = {distance_max} nm; \
@@ -388,11 +391,18 @@ Using {Nbins} bins for building the histogram.\n')
     filename = f'{outname}-{atomname}-ResidenceTime.dat'
     np.savetxt(filename, residence_time_data.T, fmt='%.6f', header=header)
 
+     # Write the normalized histogram to file
+    header = f'{outname}-{atomname}-ResidenceTime-normalized \nDistance min = {distance_min} nm; Distance max = {distance_max} nm; \
+ Total simulation time = {total_simulation_time};\
+ Time step = {timestep} ns; Number of bins = {Nbins} \nResidence time, ns; Occurrence'
+    filename = f'{outname}-{atomname}-ResidenceTime-normalized.dat'
+    np.savetxt(filename, residence_time_data_normalized.T, fmt='%.6f', header=header)
+
     # Estimate mean (lower bound) for the residence time
-    mean_residence_time = round(np.average(bins, weights=occurrence), 1)
+    mean_residence_time = round(np.average(bins, weights=occurrence_normalized), 1)
     print(f'Mean residence time = {mean_residence_time} ns')
 
-    return residence_time_data, mean_residence_time
+    return residence_time_data, residence_time_data_normalized, mean_residence_time
 
 
 # Plots the residence time histogram
