@@ -401,10 +401,14 @@ Using {Nbins} bins for building the histogram.\n')
     print(f'Residence time data is written to {filename_normalized}.')
 
     # Estimate mean (lower bound) for the residence time
-    mean_residence_time = round(np.average(bins, weights=occurrence_normalized), 1)
+    mean_residence_time = round(np.average(bins, weights=occurrence), 6)
     print(f'Mean residence time = {mean_residence_time} ns')
 
-    return residence_time_data, residence_time_data_normalized, mean_residence_time
+    # Estimate mean (lower bound) for the residence time (normalized)
+    mean_residence_time_normalized = round(np.average(bins, weights=occurrence_normalized), 6)
+    print(f'Mean residence time (normalized) = {mean_residence_time_normalized} ns')
+
+    return residence_time_data, residence_time_data_normalized, mean_residence_time, mean_residence_time_normalized
 
 
 # Plots the residence time histogram
