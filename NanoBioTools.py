@@ -378,7 +378,8 @@ Using {Nbins} bins for building the histogram.\n')
     occurrence= hist[0]
     # Normalize the occurrence in such a way that it is divided by the total possible number of such events
     # e.g. with 1000 ns total simulation time the occurrence of 10 ns binding events is divided by 100, etc.
-    occurrence_normalized = hist[0]*(bins/total_simulation_time)
+    #occurrence_normalized = hist[0]*(bins/total_simulation_time)
+    occurrence_normalized = hist[0]*(total_simulation_time/(total_simulation_time - bins))
 
     residence_time_data = np.array((bins, occurrence))
 
