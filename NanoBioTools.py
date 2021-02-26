@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import itertools
 import time
 
-
-# A function that reads XTC trajectory file and returns MDtraj trajectory object
 def readXTC(trajname, topname, stride=1):
+    """A function that reads XTC trajectory file and returns MDtraj trajectory object."""
+
     start = time.time()
     print(f'Opening {trajname} trajectory file (stride = {stride}) with {topname} as a topology...')
     traj = md.load_xtc(trajname, top=topname, stride=stride)
@@ -16,9 +16,9 @@ def readXTC(trajname, topname, stride=1):
     print(f'{traj}\n')
     return traj
 
-
-# This function removes bulk atoms from a slab based on their distance along Z axis to COM.
 def removeSlabBulk(topname, resname, cutoffBulk=0):
+    """This function removes bulk atoms from a slab based on their distance along Z axis to COM."""
+
     print(f'Selecting residue "{resname}"...')
     print(f'Using {cutoffBulk} nm as a minimum distance from COM along Z axis to remove bulk slab atoms.\n')
     
@@ -46,13 +46,13 @@ def removeSlabBulk(topname, resname, cutoffBulk=0):
 
     return residue_modified
 
-
-# This function reads a topology file (for example, a single GRO or PDB file), finds OH groups
-# within a certain residue (for example, TiO2 slab or NP) and returns numpy array with the atom indices
-# of OH groups. First, the hydrogen atoms are found, then the function looks for neighbors of hydrogen atoms
-# within certain cutoff distance (0.12 nm by default). It assumes that ALL hydrogen atoms within a residue
-# belong to OH groups (no bonded water!). 
 def selectOH(topname, resname, cutoffOH = 0.12):
+    """This function reads a topology file (for example, a single GRO or PDB file), finds OH groups
+    within a certain residue (for example, TiO2 slab or NP) and returns numpy array with the atom indices
+    of OH groups. First, the hydrogen atoms are found, then the function looks for neighbors of hydrogen atoms
+    within certain cutoff distance (0.12 nm by default). It assumes that ALL hydrogen atoms within a residue
+    belong to OH groups (no bonded water!). """
+
     print(f'Selecting residue "{resname}"...')
     coordinates = md.load(topname)
     top = md.load(topname).topology
@@ -69,11 +69,11 @@ def selectOH(topname, resname, cutoffOH = 0.12):
     print(f'Number of oxygen atoms matches the number of hydrogen atoms.')
     return np.concatenate((oxygens, hydrogens))
 
-
-# This function takes an array of atom indices corresponding to
-# a certain residue (for example TiO2 slab or NP) then calls selectOH function to find OH groups
-# and returns a numpy array that contains indices of the original residue without OH groups
 def removeOH(topname, resname, residue, cutoffOH = 0.12):
+    """This function takes an array of atom indices corresponding to
+    a certain residue (for example TiO2 slab or NP) then calls selectOH function to find OH groups
+    and returns a numpy array that contains indices of the original residue without OH groups"""
+
     assert len(residue) != 0, ('Input residue selection is empty!')
     print(f'Input residue contains {len(residue)} atoms.')
     print(f'Finding and deleting OH groups...\n')
@@ -83,21 +83,19 @@ def removeOH(topname, resname, residue, cutoffOH = 0.12):
     print(f'Residue "{resname}" contains {len(residue_without_OH)} atoms after deleting OH groups.\n')
     return residue_without_OH
 
-
-# Select atoms from a topology and return list of indices of the atoms
 def selectAtoms(top, resname, atomname):
+    """Select atoms from a topology and return list of indices of the atoms"""
+
     selectAtoms = f'resname == {resname} and name == {atomname}'
     atoms = top.select(selectAtoms)
     print(f'Selecting {len(atoms)} "{atomname}" atoms from resname "{resname}"')
     return atoms
 
-
-# This function calculates distance from COM of every lipid molecule to the slab surface
-# along the normal (difference in Z coordinates of lipid COM and the slab surface atom)
-# By looking at lipid COM - time plot one can judge if there are any lipid flip flops (lipid diffusion along the bilayer normal)
-# The function also outputs indeces of lipids, belonging to the bottom or the upper bilayer leaflet
-
 def getBilayerLeaflets(topname, resname, lipid_resname, cutoffOH=0.12):
+    """This function calculates distance from COM of every lipid molecule to the slab surface
+    along the normal (difference in Z coordinates of lipid COM and the slab surface atom)
+    By looking at lipid COM - time plot one can judge if there are any lipid flip flops (lipid diffusion along the bilayer normal)
+    The function also outputs indeces of lipids, belonging to the bottom or the upper bilayer leaflet"""
 
     # Get indices of the residue without OH groups
     top = md.load(topname).topology
@@ -140,17 +138,15 @@ def getBilayerLeaflets(topname, resname, lipid_resname, cutoffOH=0.12):
 
     return
 
-
-
-# This function takes trajectory file that is read by readXTC function, indices of atoms
-# from matching topology, the name of the residue and cutoff distance
-# for finding oxygens of OH groups in the residue.
-# The distances between all the atoms and residue atoms are calculated and the minimum
-# distance between each atom and every atom of the residue is taken
-# and outputed as an array
-
-# analyze one frame at a time?
 def getSurfaceDistanceSlab(traj, topname, resname, atomname, resname_molecule, cutoffOH=0.12, cutoffBulk=0):
+    """This function takes trajectory file that is read by readXTC function, indices of atoms
+    from matching topology, the name of the residue and cutoff distance
+    for finding oxygens of OH groups in the residue.
+    The distances between all the atoms and residue atoms are calculated and the minimum
+    distance between each atom and every atom of the residue is taken
+    and outputed as an array"""
+
+    # A suggestion: analyze one frame at a time?
 
     # Get indices of the residue without OH groups and without bulk atoms
     top = md.load(topname).topology
@@ -180,13 +176,43 @@ def getSurfaceDistanceSlab(traj, topname, resname, atomname, resname_molecule, c
 
     return np.amin(distances_reshaped, axis=2).T
 
-# This function takes trajectory file that is read by readXTC function, indices of atoms
-# from matching topology, the name of the residue and cutoff distance
-# for finding oxygens of OH groups in the residue.
-# The distances between all the atoms and residue atoms are calculated and the minimum
-# distance between each atom and every atom of the residue is taken
-# and outputed as an array
+def getNanoparticleRadius(traj, topname, resname, cutoffOH=0.12):
+    """Estimate radius of a nanoparticle by calculating distances
+    between all NP atoms (without OH groups) and its COM. Radius
+    is obtained by taking maximum NP atom - NP COM distance at 
+    each frame and averaging it over the whole trajectory.
+    
+    The function returns (mean radius, standard deviation, max radius, min radius)"""
+
+    print(f"Estimating radius of a nanoparticle (resname == {resname})... \n")
+
+    # Get indices of the residue without OH groups
+    top = md.load(topname).topology
+    selectResidue = f'resname == {resname}'
+    residue_full = top.select(selectResidue)
+    residue = removeOH(topname, resname, residue_full, cutoffOH=cutoffOH)
+
+    # Get coordinates of the residue (without OH groups) at each frame
+    residue_coordinates = traj.atom_slice(residue)
+
+    # Compute COM at each frame
+    coms = md.compute_center_of_geometry(residue_coordinates)
+
+    # Compute max NP atom - NP COM distances (radii) for each frame
+    max_radii = [np.amax(np.linalg.norm(residue_coordinates.xyz[i] - coms[i], axis=1)) for i in range(len(residue_coordinates.xyz))]
+
+    print(f'Nanoparticle radius estimation: \nR_mean = {np.mean(max_radii)} nm \nR_std = {np.std(max_radii)} nm \
+    \nR_max = {np.amax(max_radii)} nm \nR_min = {np.amin(max_radii)} nm \n')
+
+    return np.mean(max_radii), np.std(max_radii), np.amax(max_radii), np.amin(max_radii)
+
 def getSurfaceDistanceGeneral(traj, topname, resname, atomname, resname_molecule, cutoffOH=0.12):
+    """This function takes trajectory file that is read by readXTC function, indices of atoms
+    from matching topology, the name of the residue and cutoff distance
+    for finding oxygens of OH groups in the residue.
+    The distances between all the atoms and residue atoms are calculated and the minimum
+    distance between each atom and every atom of the residue is taken
+    and outputed as an array"""
 
     # Get indices of the residue without OH groups
     top = md.load(topname).topology
@@ -217,12 +243,14 @@ def getSurfaceDistanceGeneral(traj, topname, resname, atomname, resname_molecule
 
     return np.amin(distances_reshaped, axis=2).T
 
+def normalizeSlab(traj, distances, topname, outname, atomname, resname_molecule, binWidth=0.005, r_max=4.5):
+    """This function builds histogram for the atom - residue distances. It takes trajectory file 
+    that is read by readXTC function, indices of atoms
+    from matching topology, name of the atoms, bin width for histogram (nm) and the name
+    of the system for the output file name.
+    
+    The density is normalized and converted to nm^-3."""
 
-# This function builds histogram for the atom - residue distances. It takes trajectory file 
-# that is read by readXTC function, indices of atoms
-# from matching topology, name of the atoms, bin width for histogram (nm) and the name
-# of the system for the output file name.
-def normalizeSlab(traj, distances, topname, outname, atomname, resname_molecule, binWidth=0.01, r_max=1.5):
     # Load the topology
     top = md.load(topname).topology
 
@@ -259,57 +287,62 @@ def normalizeSlab(traj, distances, topname, outname, atomname, resname_molecule,
 
     return density
 
-# This function builds histogram for the atom - residue distances. It takes trajectory file 
-# that is read by readXTC function, indices of atoms
-# from matching topology, name of the atoms, bin width for histogram (nm) and the name
-# of the system for the output file name.
-def normalizeGeneral(traj, distances, topname, outname, atomname, binWidth=0.01, r_max=1.5):
+def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, resname_molecule, binWidth=0.005, r_max=4.5):
+    """This function builds histogram for the atom - residue distances. It takes trajectory file 
+    that is read by readXTC function, indices of atoms
+    from matching topology, name of the atoms, bin width for histogram (nm) and the name
+    of the system for the output file name."""
+
     # Load the topology
-    #top = md.load(topname).topology
+    top = md.load(topname).topology
 
     # Number of atoms
-    #atoms = selectAtoms(top, atomname)
-    #Natoms = len(atoms) 
+    atoms = selectAtoms(top, resname_molecule, atomname)
+    Natoms = len(atoms) 
 
     # Normalization properties
-    #box = traj.unitcell_lengths[0]
+    box = traj.unitcell_lengths[0]
     Nframes = traj.n_frames
-    #boxVolume = box[0] * box[1] * box[2]
-    #averageNumberDensity = Natoms / boxVolume
+    boxVolume = box[0] * box[1] * box[2]
+    averageNumberDensity = Natoms / boxVolume
 
-    # Flexible bin values
-    #Nbins = int((np.amax(distances.flatten()) - np.amin(distances.flatten())) / binWidth)
     # Fixed bin values
     Nbins = int(r_max / binWidth)
 
-    #sphereRadii = np.linspace(np.amin(distances.flatten()), np.amax(distances.flatten()), Nbins)
-    #binVolumes = 4 * np.pi * sphereRadii**2 * binWidth
+    # Obtain radius of the spherical NP
+    R, Rstd, Rmax, Rmin = getNanoparticleRadius(traj, topname, resname=resname_NP)
+
+    sphereRadii = np.linspace(R, (R + r_max), Nbins)
+    binVolumes = 4 * np.pi * sphereRadii**2 * binWidth
 
     
     print(f'Building histogram...')
     print(f'Number of frames: {Nframes}')
-    #print(f'Average number density: {round(averageNumberDensity, 8)}')
-    #print(f'Min bin volume: {np.amin(binVolumes)} nm3')
-    #print(f'Max bin volume: {np.amax(binVolumes)} nm3')
+    print(f'Average number density: {round(averageNumberDensity, 8)}')
+    print(f'Min bin volume: {np.amin(binVolumes)} nm3')
+    print(f'Max bin volume: {np.amax(binVolumes)} nm3')
     print(f'Number of bins: {Nbins}')
 
-    # Build histogram
-    hist = np.histogram(distances.flatten(), bins=Nbins, range=(0, r_max), density=False)
-    #density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes))) # It seems that it is a wrong way to normalize
-    # the density (due to the fact that it is not clear how to estimate the bin volume?)
+    # Build histogram (use distances to COM instead, then subtract radius again to get the distance to the surface)
+    hist = np.histogram(distances.flatten() + R, bins=Nbins, range=(R, (R + r_max)), density=False)
+    density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes)))
+
+    density[0] -= R
 
     # Instead, I will do a general normalization where I divide the occurenece by the number of frames and multiply by the number of bins
-    density = np.array((hist[1][1:], Nbins * hist[0]/Nframes))
+    #density = np.array((hist[1][1:], Nbins * hist[0]/Nframes))
 
     # Write the histogram to file
-    header = f'{atomname} number density (not normalized) ({outname}) \nDistance, nm; Occurrence'
+    header = f'{atomname} number density ({outname}) \nDistance, nm; Number density, nm^-3 \n \
+    Nanoparticle radius estimation: \nR_mean = {R} nm \nR_std = {Rstd} nm \nR_max = {Rmax} nm \nR_min = {Rmin} nm'
     filename = f'{outname}-{atomname}-NumberDensity.dat'
     np.savetxt(filename, density.T, fmt='%.6f', header=header)
 
     return density
 
-# Plots the number density profile
 def plotDensityProfile(density, filename, color, label, x_min, x_max):
+    """Plots the number density profile"""
+
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(figsize=(12,7))
@@ -325,8 +358,9 @@ def plotDensityProfile(density, filename, color, label, x_min, x_max):
 
     return
 
-# Plots the density histogram (for spheres)
 def plotDensityHistogram(density, filename, color, label, x_min, x_max):
+    """Plots the density histogram (for spheres)"""
+
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(figsize=(12,7))
@@ -342,17 +376,15 @@ def plotDensityHistogram(density, filename, color, label, x_min, x_max):
 
     return
 
-
-# Auxiliary function to calculate lengths of sequences of ones for 0,1 arrays
 def runsOfOnes(bits):
+    """Auxiliary function to calculate lengths of sequences of ones for 0,1 arrays"""
     return [sum(g) for b, g in itertools.groupby(bits) if b]
 
-
-# This function builds a histogram of lengths of binding events and returns a weighted average of the mean residence time
-# Distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns
-# The function takes two distance threshold values - distance_min and distance_max. That allows
-# to get residence times for separate atom density peaks 
 def getResidenceTime(distances, atomname, resname, outname, distance_min=0.25, distance_max=0.35, timestep=0.5, Nbins=100):
+    """This function builds a histogram of lengths of binding events and returns a weighted average of the mean residence time
+    Distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns
+    The function takes two distance threshold values - distance_min and distance_max. That allows
+    to get residence times for separate atom density peaks """
 
     # Total simulation time is the number of frames multiplied by the timestep minus the first frame of the simulation
     total_simulation_time = (len(distances.T) - 1) * timestep
@@ -411,9 +443,9 @@ Using {Nbins} bins for building the histogram.\n')
 
     return residence_time_data, residence_time_data_normalized, mean_residence_time, mean_residence_time_normalized
 
-
-# Plots the residence time histogram
 def plotResidenceHistogram(residence_time_data, filename, color, label, width=5):
+    """Plots the residence time histogram"""
+
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(figsize=(12,7))
