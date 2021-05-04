@@ -329,7 +329,7 @@ def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, res
     if normalize:
         density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes)))
     else:
-        density = np.array((hist[1][1:], hist[0]/Nframes))
+        density = np.array((hist[1][1:], Nbins * hist[0]/Nframes))
 
     density[0] -= R
 
