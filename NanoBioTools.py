@@ -327,14 +327,14 @@ def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, res
     hist = np.histogram(distances.flatten() + R, bins=Nbins, range=(R, (R + r_max)), density=False)
     # Normalize to nm^-3 by dividing with the bin volumes:
     if normalize:
-        density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes)))
+        density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes))) # atoms/nm^3 (averaged over time)
     else:
-        density = np.array((hist[1][1:], Nbins * hist[0]/Nframes))
+        density = np.array((hist[1][1:], hist[0]/Nframes)) # atoms/bin (averaged over time)
 
     density[0] -= R
 
     # Instead, I will do a general normalization where I divide the occurenece by the number of frames and multiply by the number of bins
-    #density = np.array((hist[1][1:], Nbins * hist[0]/Nframes))
+    #density = np.array((hist[1][1:], hist[0]/Nframes))
 
     # Write the histogram to file
     if normalize:
