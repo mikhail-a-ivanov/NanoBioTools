@@ -287,7 +287,7 @@ def normalizeSlab(traj, distances, topname, outname, atomname, resname_molecule,
 
     return density
 
-def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, resname_molecule, binWidth=0.005, r_max=4.5):
+def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, resname_molecule, binWidth=0.005, r_max=4.5, normalize=True):
     """This function builds histogram for the atom - residue distances. It takes trajectory file 
     that is read by readXTC function, indices of atoms
     from matching topology, name of the atoms, bin width for histogram (nm) and the name
@@ -325,7 +325,11 @@ def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, res
 
     # Build histogram (use distances to COM instead, then subtract radius again to get the distance to the surface)
     hist = np.histogram(distances.flatten() + R, bins=Nbins, range=(R, (R + r_max)), density=False)
-    density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes)))
+    # Normalize to nm^-3 by dividing with the bin volumes:
+    if normalize:
+        density = np.array((hist[1][1:], hist[0]/(Nframes*binVolumes)))
+    else:
+        density = np.array((hist[1][1:], hist[0]/Nframes))
 
     density[0] -= R
 
@@ -333,10 +337,16 @@ def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, res
     #density = np.array((hist[1][1:], Nbins * hist[0]/Nframes))
 
     # Write the histogram to file
-    header = f'{atomname} number density ({outname}) \nDistance, nm; Number density, nm^-3 \n \
-    Nanoparticle radius estimation: \nR_mean = {R} nm \nR_std = {Rstd} nm \nR_max = {Rmax} nm \nR_min = {Rmin} nm'
-    filename = f'{outname}-{atomname}-NumberDensity.dat'
-    np.savetxt(filename, density.T, fmt='%.6f', header=header)
+    if normalize:
+        header = f'{atomname} number density ({outname}) \nDistance, nm; Number density, nm^-3 \n \
+        Nanoparticle radius estimation: \nR_mean = {R} nm \nR_std = {Rstd} nm \nR_max = {Rmax} nm \nR_min = {Rmin} nm'
+        filename = f'{outname}-{atomname}-NumberDensity.dat'
+        np.savetxt(filename, density.T, fmt='%.6f', header=header)
+    else:
+        header = f'{atomname} occurrence ({outname}) \nDistance, nm; Occurrence \n \
+        Nanoparticle radius estimation: \nR_mean = {R} nm \nR_std = {Rstd} nm \nR_max = {Rmax} nm \nR_min = {Rmin} nm'
+        filename = f'{outname}-{atomname}-occurrence.dat'
+        np.savetxt(filename, density.T, fmt='%.6f', header=header)
 
     return density
 
@@ -380,7 +390,7 @@ def runsOfOnes(bits):
     """Auxiliary function to calculate lengths of sequences of ones for 0,1 arrays"""
     return [sum(g) for b, g in itertools.groupby(bits) if b]
 
-def getResidenceTime(distances, atomname, resname, outname, distance_min=0.25, distance_max=0.35, timestep=0.5, Nbins=100):
+def getResidenceTime(distances, atomname, resname, outname, distance_min=0.25, distance_max=0.35, timestep=0.5, Nbins=2000):
     """This function builds a histogram of lengths of binding events and returns a weighted average of the mean residence time
     Distances array should have a shape of (N_atoms, N_frames) as getSurfaceDistances function returns
     The function takes two distance threshold values - distance_min and distance_max. That allows
@@ -388,6 +398,7 @@ def getResidenceTime(distances, atomname, resname, outname, distance_min=0.25, d
 
     # Total simulation time is the number of frames multiplied by the timestep minus the first frame of the simulation
     total_simulation_time = (len(distances.T) - 1) * timestep
+    #Nbins = int(total_simulation_time / timestep)
 
     print(f'Calculating residence time for {resname}-{atomname} pair with the min distance of {distance_min} nm and max distance of {distance_max} nm.\n\
 Total simulation time = {total_simulation_time} ns, time step = {timestep} ns.\n\
