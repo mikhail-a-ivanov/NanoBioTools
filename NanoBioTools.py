@@ -287,11 +287,14 @@ def normalizeSlab(traj, distances, topname, outname, atomname, resname_molecule,
 
     return density
 
-def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, resname_molecule, binWidth=0.005, r_max=4.5, normalize=True):
+def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, resname_molecule, binWidth=0.005, r_max=4.5, normalize=True, R=0):
     """This function builds histogram for the atom - residue distances. It takes trajectory file 
     that is read by readXTC function, indices of atoms
     from matching topology, name of the atoms, bin width for histogram (nm) and the name
-    of the system for the output file name."""
+    of the system for the output file name.
+    
+    Set R = 0 if you want to compute NP radius using the getNanoparticleRadius function.
+    If the radius is known beforehand, specify its value."""
 
     # Load the topology
     top = md.load(topname).topology
@@ -310,7 +313,13 @@ def normalizeSphere(traj, distances, topname, outname, atomname, resname_NP, res
     Nbins = int(r_max / binWidth)
 
     # Obtain radius of the spherical NP
-    R, Rstd, Rmax, Rmin = getNanoparticleRadius(traj, topname, resname=resname_NP)
+    if R == 0:
+        R, Rstd, Rmax, Rmin = getNanoparticleRadius(traj, topname, resname=resname_NP)
+    
+    else:
+        Rstd = 0
+        Rmax = R
+        Rmin = R
 
     sphereRadii = np.linspace(R, (R + r_max), Nbins)
     binVolumes = 4 * np.pi * sphereRadii**2 * binWidth
