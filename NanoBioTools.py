@@ -206,6 +206,34 @@ def getNanoparticleRadius(traj, topname, resname, cutoffOH=0.12):
 
     return np.mean(max_radii), np.std(max_radii), np.amax(max_radii), np.amin(max_radii)
 
+def getSlabWidth(topname, resname, cutoffOH=0.12):
+    """Estimate width of a slab by calculating separation 
+    between slab atoms with maximum and minimum Z coordinate."""
+
+    # Get indices of the residue without OH groups
+    top = md.load(topname).topology
+    selectResidue = f'resname == {resname}'
+    residue = top.select(selectResidue)
+    assert residue.size != 0, ('Residue atoms selection is empty. Please check the name of the residue or the topology file.')
+    residue_without_OH = removeOH(topname, resname, residue, cutoffOH=cutoffOH)
+
+    # Load coordinates of the residue atoms
+    coordinates_all = md.load(topname)
+    coordinates_residue = coordinates_all.atom_slice(residue_without_OH)
+
+    # Compute slab COM, Z_max and Z_min
+    slab_com = md.compute_center_of_geometry(coordinates_residue)
+    slab_Z_com = slab_com[0][2]
+    slab_Z_max = np.amax(coordinates_residue.xyz[0].T[2])
+    slab_Z_min = np.amin(coordinates_residue.xyz[0].T[2])
+
+    print(f'Slab COM = {slab_Z_com:.4f} nm')
+    print(f'Slab max Z coordinate = {slab_Z_max:.4f} nm')
+    print(f'Slab min Z coordinate = {slab_Z_min:.4f} nm')
+    slab_width = abs(slab_Z_max - slab_Z_min)
+    print(f'Slab width = {slab_width:.4f} nm')
+    return(slab_width)
+
 def getSurfaceDistanceGeneral(traj, topname, resname, atomname, resname_molecule, cutoffOH=0.12):
     """This function takes trajectory file that is read by readXTC function, indices of atoms
     from matching topology, the name of the residue and cutoff distance
